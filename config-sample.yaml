@@ -1,0 +1,60 @@
+apiVersion: kubekey.kubesphere.io/v1alpha2  # KubeKey API version used for the cluster configuration
+kind: Cluster                                # Declares that this YAML defines a "Cluster" object
+metadata:
+  name: sample                               # Logical name for my cluster (can be anything)
+
+spec:
+  hosts:                                     # Define the nodes (machines) that make up the cluster
+    - name: node1                            # Node hostname (can be set manually or auto-detected)
+      address: 192.168.1.70                  # External IP address (reachable by others)
+      internalAddress: 192.168.1.70          # Internal IP address (used inside the cluster)
+      user: osboxes                          # SSH username used to connect into this machine
+      privateKeyPath: /home/osboxes/.ssh/id_rsa  # Path to the SSH private key for node authentication
+      privateInterface: enp0s8               # Network interface for internal traffic (important for Calico)
+
+  roleGroups:                                # Define what role(s) each node will have
+    etcd:
+      - node1                                # Node1 will act as the etcd server (external etcd)
+    control-plane:
+      - node1                                # Node1 will run Kubernetes API server and controllers
+    worker:
+      - node1                                # Node1 will also run workload (application) pods
+
+  controlPlaneEndpoint:                      # Define the Kubernetes API server entry point
+    domain: lb.kubesphere.local              # Virtual domain (must be resolvable inside the cluster)
+    address: 192.168.1.70                    # Actual IP address that clients will use to reach the API server
+    port: 6443                               # Kubernetes default secure port
+
+  kubernetes:
+    version: v1.25.3                         # Version of Kubernetes to install
+    clusterName: cluster.local               # Internal DNS domain for my cluster (important for CoreDNS)
+    autoRenewCerts: true                     # Automatically renew expiring Kubernetes certificates
+    containerManager: docker                 # Container runtime to use (Docker here, supported by cri-dockerd)
+    apiserverAdvertiseAddress: 192.168.1.70   # IP address for the Kubernetes API server to advertise to nodes
+
+  etcd:
+    type: external                           # Specify that etcd is external (manually managed, not by KubeKey)
+    external:
+      endpoints:
+        - https://192.168.1.70:2379           # External etcd endpoint URL (secured with TLS)
+      caFile: /etc/ssl/etcd/ssl/ca.pem        # Path to etcd Certificate Authority (CA) file
+      certFile: /etc/ssl/etcd/ssl/node-node1.pem  # Client certificate file used to connect to etcd
+      keyFile: /etc/ssl/etcd/ssl/node-node1-key.pem  # Client private key file used to authenticate to etcd
+
+  network:
+    plugin: calico                           # Networking solution (CNI plugin) used inside the cluster
+    kubePodsCIDR: 10.233.64.0/18              # CIDR block for allocating Pod IP addresses
+    kubeServiceCIDR: 10.233.0.0/18            # CIDR block for allocating Service IP addresses
+    multusCNI:
+      enabled: false                         # Disable Multus CNI plugin (used for multiple network interfaces per Pod)
+
+  registry:
+    privateRegistry: ""                      # No private container image registry configured
+    namespaceOverride: ""                    # No override for registry namespace
+    registryMirrors: []                      # No mirror repositories configured for dockerhub or others
+    insecureRegistries: []                   # No insecure (non-SSL) registries configured
+
+  addons: []                                  # No additional addons (like logging, service mesh) specified at this point
+
+  kubesphere:
+    version: v3.3.1                          # Install KubeSphere Platform version 3.3.1 after cluster installation
